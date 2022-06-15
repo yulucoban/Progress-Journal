@@ -1,4 +1,4 @@
-## Progess Journal of Yusuf Uluçoban 
+## Progress Journal of Yusuf Uluçoban 
 
 # Recommendation System Project 
 
@@ -40,7 +40,7 @@
 
 ## Homework 2
 
-[Here](files/IE425-HW2.html) is “Cross Validatiton” in R !
+[Here](files/IE425-HW2.html) is “Cross Validatiton Analysis” in R !
 
 
 ## Homework 3
@@ -73,5 +73,5 @@
 
 ## Homework 4
 
-[Here](files/Group13-HW6.html) is “Polynomial Regression and BackPropagation Algorithm” in R !
-[Here](files/FinalQ1.html) is “Polynomial Regression and BackPropagation Algorithm” in R !
+[Here](files/Group13-HW6.html) is “Polynomial Regression and BackPropagation Algorithm” in R !  
+[Here](files/FinalQ1.html) is also another “Polynomial Regression and BackPropagation Algorithm” in R !
