@@ -1,56 +1,4 @@
-## 
-
-You can use the [editor on GitHub](https://github.com/yulucoban/Progress-Journal/edit/main/README.md) to maintain and preview the content for your website in Markdown files.
-
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
-
-### Markdown
-
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
-
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [Basic writing and formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/yulucoban/Progress-Journal/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
-
-
-
-
-## Week 16 / Project
-
-[Here](files/Project_Report.html) is my project that is about “Trendyol Sales Predictions” using R !
-
-
-
-
-
-
-
-
-
+## Progess Journal of Yusuf Uluçoban 
 
 # Recommendation System Project 
 
@@ -58,27 +6,27 @@ Having trouble with Pages? Check out our [documentation](https://docs.github.com
 
 ## Homework 1
 
-[Here](files/hw1.html) is “Data Visualization and Google Trends on Three Different Measures from Turkey” using R !
+[Here](files/hw1.html) is “Data Visualization and Google Trends on Three Different Measures from Turkey” in R !
 
 
 ## Homework 2
 
-[Here](files/Homework2.html) is “Time Series Regression for Predicting Macroeconomic Indicator: Purchase of Vehicles” using R !
+[Here](files/Homework2.html) is “Time Series Regression for Predicting Macroeconomic Indicator: Purchase of Vehicles” in R !
 
 
 ## Homework 3
 
-[Here](files/Homework3.html) is “Stationarity of Electricity Consumption Data in Turkey over 2016-2021 and Predictions of Daily Consumptions” using R !
+[Here](files/Homework3.html) is “Stationarity of Electricity Consumption Data in Turkey over 2016-2021 and Predictions of Daily Consumptions” in R !
 
 
 ## Homework 4
 
-[Here](files/Homework_4_5.html) is “Decomposition of Trendyol Sales Project Data” using R !
+[Here](files/Homework_4_5.html) is “Decomposition of Trendyol Sales Project Data” in R !
 
 
 ## Final Project
 
-[Here](files/Project_Report.html) is “Trendyol Sales Predictions” using R !
+[Here](files/Project_Report.html) is “Trendyol Sales Predictions” in R !
 
 
 
@@ -87,24 +35,43 @@ Having trouble with Pages? Check out our [documentation](https://docs.github.com
 
 ## Homework 1
 
-[Here](files/425hw1.html) is “Decision Tree Analysis” using R !
+[Here](files/425hw1.html) is “Decision Tree Analysis” in R !
 
 
 ## Homework 2
 
-[Here](files/IE425-HW2.html) is “Cross Validatiton” using R !
+[Here](files/IE425-HW2.html) is “Cross Validatiton” in R !
 
 
 ## Homework 3
 
-[Here](files/IE425-HW3.html) is “Logistic Regression Analysis” using R !
+[Here](files/IE425-HW3.html) is “Logistic Regression Analysis” in R !
 
 
 ## Homework 4
 
-[Here](files/IE425-HW4-v2.html) is “Clustering Analysis” using R !
+[Here](files/IE425-HW4-v2.html) is “Clustering Analysis” in R !
 
 
 
 # Non-Linear Optimization for IE440
 
+## Homework 1
+
+[Here](files/IE440-hw1.html) is “Optimality Analysis Using Different Methods” in R !
+
+
+## Homework 2
+
+[Here](files/Group13-HW2.html) is “Weiszfeld Algorithm” in R !
+
+
+## Homework 3
+
+[Here](files/Group13-HW3.html) is “Steepest Descent and Newton's Method in Optimality Analysis” in R !
+
+
+## Homework 4
+
+[Here](files/Group13-HW6.html) is “Polynomial Regression and BackPropagation Algorithm” in R !
+[Here](files/FinalQ1.html) is “Polynomial Regression and BackPropagation Algorithm” in R !
