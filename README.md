@@ -1,4 +1,4 @@
-## Welcome to GitHub Pages
+## 
 
 You can use the [editor on GitHub](https://github.com/yulucoban/Progress-Journal/edit/main/README.md) to maintain and preview the content for your website in Markdown files.
 
@@ -55,6 +55,33 @@ Having trouble with Pages? Check out our [documentation](https://docs.github.com
 # Recommendation System Project 
 
 # Time Series Analysis for IE360
+
+## Homework 1
+
+[Here](files/hw1.html) is “Data Visualization and Google Trends on Three Different Measures from Turkey” using R !
+
+
+## Homework 2
+
+[Here](files/Homework2.html) is “Time Series Regression for Predicting Macroeconomic Indicator: Purchase of Vehicles” using R !
+
+
+## Homework 3
+
+[Here](files/Homework3.html) is “Stationarity of Electricity Consumption Data in Turkey over 2016-2021 and Predictions of Daily Consumptions” using R !
+
+
+## Homework 4
+
+[Here](files/Homework_4_5.html) is “Decomposition of Trendyol Sales Project Data” using R !
+
+
+## Final Project
+
+[Here](files/Project_Report.html) is “Trendyol Sales Predictions” using R !
+
+
+
 
 # Data Mining for IE425
 

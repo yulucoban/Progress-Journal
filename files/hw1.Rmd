@@ -1,0 +1,420 @@
+---
+title: "Homework1"
+author: "Yusuf Uluçoban - Spring 2021 - IE360"
+date: "17 04 2021"
+output: html_document
+---
+
+# Data Visualization and Google Trends on  Three Different Measures from Turkey 
+## 1) Monthly House Sales Data of Turkey from 2016 to 2021
+
+This data set involves monthly reported house sales from every city in Turkey. The data is avaliable from January 2016 to January 2021, since the visualization goal is examining the trends on last 5 years. 
+Because the data is accurate for each city, to examine and visualize for each is difficult to consider. To make things easier, the house sales data will be collected and controlled over three major cities in Turkey, İstanbul, Ankara and İzmir. Additionally, the total sales over Turkey will be included to further investigations. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	include = FALSE
+)
+##Necessary libraries
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(lubridate)
+library(RColorBrewer)
+##Datasets needed for the first measure
+konutsatis = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/konutsatis.xlsx")
+
+```
+
+```{r include=FALSE}
+#Data Manipulations
+konutsatis = konutsatis[,1:5]
+konutsatis = data.frame(konutsatis)
+
+#date corrections
+konutsatis$Date=paste(konutsatis$Date, "-01")
+konutsatis$Date=ymd(konutsatis$Date)
+
+#adding seasons
+season = (
+  group=c( rep('Winter', 2),rep('Spring', 3),rep('Summer', 3),rep('Autumn', 3),rep('Winter', 1),rep('Winter', 2),rep('Spring', 3),rep('Summer', 3),rep('Autumn', 3),rep('Winter', 1),rep('Winter', 2),rep('Spring', 3),rep('Summer', 3),rep('Autumn', 3),rep('Winter', 1),rep('Winter', 2),rep('Spring', 3),rep('Summer', 3),rep('Autumn', 3),rep('Winter', 1),rep('Winter', 2),rep('Spring', 3),rep('Summer', 3),rep('Autumn', 3),rep('Winter', 2))
+)
+season
+
+konutsatis$season = season
+```
+
+
+```{r echo=FALSE, include=TRUE}
+head(konutsatis)
+```
+
+As you can observe, data frame includes date column for each month, total column for the all sales in the country and three different columns for three different major cities in Turkey. The numbers shows the number of house sales.  
+
+Let's plot all the observations according to monthly time frames.
+
+```{r echo=FALSE, include=TRUE}
+ggplot(konutsatis, aes(Date)) +
+  geom_line(aes(y=Total, color="Total")) +
+  geom_line(aes(y=Istanbul, color="İstanbul")) +
+  geom_line(aes(y=Ankara, color="Ankara")) +
+  geom_line(aes(y=Izmir, color="İzmir")) +
+  labs(title = "Number of Houses Sold in Turkey over 2016-2021 observed Monthly", 
+       x = "Date",
+       y = "Houses Sold",
+       color = "Cities") +
+  scale_x_date(date_breaks = "4 months") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+It is obvious that the sales amounts has some oscillations throughout the time although the trend seems increasing.
+For further calculations and investigations, looking up to the years to learn if is there a similar pattern for each years such as, all has the maximum in winter or minimum in summer etc.
+
+```{r include=FALSE}
+#Data Manipulations for yearly 
+konutsatis2016=konutsatis[1:12,]
+konutsatis2017=konutsatis[13:24,]
+konutsatis2018=konutsatis[25:36,]
+konutsatis2019=konutsatis[37:48,]
+konutsatis2020=konutsatis[49:60,]
+```
+
+```{r include=TRUE,echo=FALSE, out.width= '20%'}
+ggplot(konutsatis2016, aes(x=Date, y=Total)) + 
+  geom_bar(color="blue",fill=rgb(0.1,0.4,0.5,0.7),stat = "identity", width=10) 
+ggplot(konutsatis2017, aes(x=Date, y=Total)) + 
+  geom_bar(color="blue",fill=rgb(0.1,0.4,0.5,0.7),stat = "identity", width=10) 
+ggplot(konutsatis2018, aes(x=Date, y=Total)) + 
+  geom_bar(color="blue",fill=rgb(0.1,0.4,0.5,0.7),stat = "identity", width=10) 
+ggplot(konutsatis2019, aes(x=Date, y=Total)) + 
+  geom_bar(color="blue",fill=rgb(0.1,0.4,0.5,0.7),stat = "identity", width=10) 
+ggplot(konutsatis2020, aes(x=Date, y=Total)) + 
+  geom_bar(color="blue",fill=rgb(0.1,0.4,0.5,0.7),stat = "identity", width=10)
+```
+
+Firstly, although it seems that the amount of house sales is decreasing in the last two years, it is incorrect. Since the numbers of y axises are not equal, graphs may mislead us about the trend.
+The goal was the examine a similar trend for each year. As you can observe, it can be said that, spring sales are less than autumn sales. Also, sales are generally has increased in late summer. Usually, after the June, the sales has an increasing trend.
+As a result we can say that, people usually buy houses in the late summer and autumn but not in spring.
+For another clear visualization of this seasonal trend, that increases in late summer and autumn, the boxplot of seasonal sales can be considered.
+
+```{r echo=FALSE, include=TRUE}
+ggplot(konutsatis, aes(x=season, y=Total, group=season)) +
+  geom_boxplot(aes(fill= factor(season))) +
+  scale_fill_brewer(palette = "BuPu", name = "Seasons") +
+  labs(title = "Boxplots of Seasonal Sales in Turkey over 2016-2021 Year by Year", 
+       x = "Year Dates",
+       y = "Sales") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+For a clear last step, boxplot of the house sales in the last 5 years are shown below. 
+
+
+```{r echo=FALSE, include=TRUE}
+ggplot(konutsatis, aes(x=Date, y=Total, group=year(Date))) +
+  geom_boxplot(aes(fill= factor(year(Date)))) +
+  scale_fill_brewer(palette = "BuPu", name = "Years") +
+  labs(title = "Boxplots of House Sales in Turkey over 2016-2021 Year by Year", 
+       x = "Year Dates",
+       y = "Search Volumes") +
+  scale_x_date(date_breaks = "1 year") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+As you can observe, the increasing trend continues although the lowest sales in the corona pandemic that are shown as double dots in the year 2020.
+
+
+From now on, Google trends data will help us to find a correlation between the key word "satılık ev" with house sales data.
+
+```{r include=FALSE}
+#Data Manipulations for Google trend data 
+googlekonutsatis = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/googletrendskonutsatis.xlsx")
+googlekonutsatis = googlekonutsatis[4:269,]
+googlekonutsatis = data.frame(googlekonutsatis)
+#date corrections
+googlekonutsatis$Column1=ymd(googlekonutsatis$Column1)
+googlekonutsatis$Column2=as.double(googlekonutsatis$Column2)
+googlekonutsatis$Year=year(googlekonutsatis$Column1)
+googlekonutsatis$Month=month(googlekonutsatis$Column1)
+googlekonutsatis=googlekonutsatis%>%
+  group_by(Year,Month)%>%
+    summarise(Aggregate=sum(Column2))
+
+konutsatis$Google=googlekonutsatis$Aggregate
+```
+
+```{r echo=FALSE, include=TRUE}
+ggplot(konutsatis, aes(x=Date, y=Google, group=year(Date))) +
+  geom_boxplot(aes(fill= factor(year(Date)))) +
+  scale_fill_brewer(palette = "BuPu", name = "Years") +
+  labs(title = "Boxplots of Search Volumes of <Satılık Ev> in Turkey over 2016-2021 Year by Year", 
+       x = "Year Dates",
+       y = "Search Volumes") +
+  scale_x_date(date_breaks = "1 year") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+As it is guessed, the graphs look similar. With the effects of the corona-virus pandemic that is started at 03.2020, the searches for house sales in Google has increased in the year 2020, however the amount of sales did not increased accordingly.
+The graphs of the remaining years are correlated.
+
+
+
+
+## 2) Dollar and Euro Exchange Rates with the Searches on Google
+This data set involves the Euro and Dollar rates according to Turkish Lira with a daily basis. The data is started from 01.01.2016 to 01.01.2021. Since the time frame is so long to interpret daily, it is obvious that we have to change its time frame from daily to monthly for line plots. Since Euro and Dollar are generally moved together, their oscillitions will be observed which is in an increasing trend over the last decade. 
+
+```{r include = FALSE}
+exchangerates = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/exchangerates.xlsx")
+#Data Manipulation
+exchangerates = exchangerates[,1:3]
+exchangerates = data.frame(exchangerates)
+exchangerates$Date=dmy(exchangerates$Date)
+exchangerates = na.omit(exchangerates)
+```
+
+```{r echo=FALSE, include=TRUE}
+head(exchangerates)
+```
+
+Since the stock market are closed in the weekends, the numeric exchange values were shown as Null's, so the weekend rows are deleted.
+
+
+
+
+Firstly, let's analyze the line plot of the USD/TRY and Euro/TRY for the last 3 years. 
+
+```{r echo=FALSE, include = TRUE}
+ggplot(exchangerates, aes(Date)) +
+  geom_line(aes(y=EURO, color="Euro")) +
+  geom_line(aes(y=USD, color="Dollar")) +
+  labs(title = "Exchange Rates between 2018-2021", 
+       x = "Date",
+       y = "Value over TRY",
+       color = "Type") +
+  scale_x_date(date_breaks = "3 months") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Although they have some differences such as in the June-July of 2020 time frame; since both has a TRY in the denominator, they usually moved together. So, it can be said that these two are correlated. 
+For further analyses, it is better that analyze box-plot graphs rather than line plots.
+
+```{r echo=FALSE, include = TRUE, out.width='50%'}
+ggplot(exchangerates, aes(x=month(Date), y=EURO, group=month(Date))) +
+  geom_boxplot(aes(fill= factor(year(Date)))) +
+  scale_fill_brewer(palette = "YlOrRd", name = "Years") +
+  labs(title = "Boxplots of Euro Exchange Rate between Jan 2018- Jan 2021", 
+       x = "Year Dates",
+       y = "TRY") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_grid(rows = vars(year(Date)), scales = "free")
+
+ggplot(exchangerates, aes(x=month(Date), y=USD, group=month(Date))) +
+  geom_boxplot(aes(fill= factor(year(Date)))) +
+  scale_fill_brewer(palette = "YlOrRd", name = "Years") +
+  labs(title = "Boxplots of USD Exchange Rate between Jan 2018- Jan 2021", 
+       x = "Months",
+       y = "TRY") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_grid(rows = vars(year(Date)), scales = "free")
+```
+
+It is very clear that Euro and Dollar rates move together according to Turkish Lira. Since it is an economic and governmental situation, things that make Turkey economics lead worse, lead exchange rates upwards.
+Comparing the results with the Google searches would be wise. For example, let's investigate key word "1 Dolar" in Google Trends. Because Google has a currency converter, people may be searching for the answer in Google.
+
+```{r include=FALSE}
+#Data Manipulations for Google trend data 
+googledolarrate = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/googletrendsdolar.xlsx")
+googledolarrate = googledolarrate[4:269,]
+googledolarrate = data.frame(googledolarrate)
+#date corrections
+googledolarrate$Column1=ymd(googledolarrate$Column1)
+googledolarrate$Column2=as.double(googledolarrate$Column2)
+googledolarrate$Column3=as.double(googledolarrate$Column3)
+googledolarrate$Year=year(googledolarrate$Column1)
+googledolarrate$Month=month(googledolarrate$Column1)
+
+```
+
+
+```{r echo=FALSE, include=TRUE}
+ggplot(googledolarrate, aes(Column1)) +
+  geom_line(aes(y=Column2,color="1 Dolar")) +
+  geom_line(aes(y=Column3,color="1 Euro")) +
+  labs(title = "Search Volumes in 2018-2021 on Google", 
+       x = "Date",
+       y = "Number of Searches",
+       color = "Key Word") +
+  scale_x_date(date_breaks = "3 months") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+It is obvious that increasing in dollar and increasing in the search volume of the "1 Dolar" are correlated because a sudden increase in dollar prices are important for the people. These importance lead them to search more while the Dollar increases. These situations are also accurate for the movement of the Euro and the search volume of the "1 Euro" 
+For all aspects of the trends, an increase that does not exceed the trend lines does not bother people. For our example of Dollar rate over Turkish Lira, in September 2018 there is an enormous and sudden increase for the prices which made people aware. Also, awareness lead people to wonder and search dollar prices in Google. The next big step in the searches is the December 2020, which is another exceeding from the trend. Comparing these two highs which are, 09.2018 and 12.2020, in the first one people searched more that the second one. The reason behind that is in 2018, the deviation from the trend was way bigger than in the 2020.
+
+
+
+## 3) The Closing Value of BIST(Turkish Stock Market) and Effects on Google Searches
+In the last time series of the homework, the stock market values and their effects on Google search will be investigated.
+Since there are rows with Null values because of the bank holidays, the null rows will be deleted to reach a better point to visualize.
+
+```{r include = FALSE}
+#Data Manipulations
+bistveri = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/bistveri.xlsx")
+bistveri = bistveri[,1:2]
+bistveri = data.frame(bistveri)
+#date corrections
+bistveri$Date=dmy(bistveri$Date)
+bistveri$Value=as.double(bistveri$Value)
+bistveri$Year=year(bistveri$Date)
+bistveri$Month=month(bistveri$Date)
+bistveri = na.omit(bistveri)
+```
+
+```{r echo=FALSE, include=TRUE}
+head(bistveri)
+```
+
+
+```{r echo=FALSE, include=TRUE}
+ggplot(bistveri, aes(Date)) +
+  geom_line(aes(y=Value)) +
+  labs(title = "Value of BIST in 2018 to 2021", 
+       x = "Date",
+       y = "Value") +
+  scale_x_date(date_breaks = "3 months") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+As you can observe, there are lots of oscillations through time. 
+However, finding a increasing or decreasing trend from this line plot is not easy. For further analysis, examining the box plot would be better.
+
+```{r echo=FALSE, include=TRUE}
+ggplot(bistveri, aes(x=Date, y=Value, group=year(Date))) +
+  geom_boxplot(aes(fill= factor(year(Date)))) +
+  scale_fill_brewer(palette = "BuPu", name = "Years") +
+  labs(title = "Boxplots of Value of the Stock Market BIST Year by Year", 
+       x = "Year Dates",
+       y = "Values") +
+  scale_x_date(date_breaks = "1 year") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+It is obvious that there are not an any absolute trend, but with the corona virus pandemic it can be seen that year 2020 has lots of outliers.
+To conclude the results, looking for a correlation between Values and Google Searches would help.
+
+
+```{r include = FALSE}
+#Data Manipulations for Google trend data 
+bistverigoogle = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/bistgoogle.xlsx")
+bistverigoogle = bistverigoogle[4:159,]
+bistverigoogle = data.frame(bistverigoogle)
+#date corrections
+bistverigoogle$Date=ymd(bistverigoogle$Date)
+bistverigoogle$Volumes=as.double(bistverigoogle$Volumes)
+bistverigoogle$Year=year(bistverigoogle$Date)
+bistverigoogle$Month=month(bistverigoogle$Date)
+```
+
+```{r include=FALSE}
+#Creating a new data frame to compare Google volumes and values
+monthlybist=data.frame()
+monthlybist=bistveri%>%
+  group_by(Year,Month)%>%
+  summarise(Actual=mean(Value))
+temp=bistverigoogle%>%
+  group_by(Year,Month)%>%
+  summarise(Google=mean(Volumes))
+monthlybist$Google=temp$Google
+monthlybist$yearmonth = as.Date(dmy(paste("01",monthlybist$Month,monthlybist$Year)))
+```
+
+```{r echo=FALSE, include=TRUE}
+ggplot(monthlybist, aes(yearmonth)) +
+  geom_line(aes(y=Google*20,color="Search Volume*20")) +
+  geom_line(aes(y=Actual,color="Actual")) +
+  labs(title = "Search Volumes of 'Borsa' and Actual BIST Value", 
+       x = "Date",
+       y = "Value",
+       color = "Lines") +
+  scale_x_date(date_breaks = "3 months") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Since comparing two thing that are not measured together is hard, such as Google Trends data with 0-100 frame and BIST Value with higher results. To make things easier, we multiplied Google Trend data with 20. 
+However, the result came different from what we expected. These two lines are not looking much correlated. There are some increasing and decreasing together but not much. 
+
+To conclude, although the first two case has some correlations with Google trends data, we have failed to find a correlation with the BIST values and Google Searches.
+
+
+## 4)Comparison of Three Different Time Series and Conclusions
+To compare three different time series with each other, we have to modify the values of the BIST, exchange rates and house sales. 
+
+```{r include=FALSE}
+lastcompare=data.frame()
+
+konutsatis$Date=ymd(konutsatis$Date)
+konutsatis$Year=year(konutsatis$Date)
+konutsatis$Month=month(konutsatis$Date)
+temp=konutsatis%>%
+  group_by(Year,Month)%>%
+  summarise(konut=mean(Total))
+temp=temp[25:60,]
+
+exchangerates$Date=ymd(exchangerates$Date)
+exchangerates$Year=year(exchangerates$Date)
+exchangerates$Month=month(exchangerates$Date)
+lastcompare=exchangerates%>%
+  group_by(Year,Month)%>%
+  summarise(usd=mean(USD))
+
+lastcompare$konut = temp$konut
+
+temp2=bistveri%>%
+  group_by(Year,Month)%>%
+  summarise(Value=mean(Value))
+
+lastcompare$bist = temp2$Value
+lastcompare$Date = as.Date(dmy(paste("01",lastcompare$Month,lastcompare$Year)))
+```
+
+
+```{r echo=FALSE, include=TRUE}
+head(lastcompare)
+```
+
+As you can guess, we again have to change some values to see result in the same graph.
+
+```{r echo=FALSE, include=TRUE}
+ggplot(lastcompare, aes(Date)) +
+  geom_line(aes(y=usd*20,color="USD * 20")) +
+  geom_line(aes(y=konut/1000,color="House Sales / 1000")) +
+  geom_line(aes(y=bist/10,color="BIST / 10")) +
+  labs(title = "Comparison of Three Different Time Series", 
+       x = "Date",
+       y = "Values",
+       color = "Data") +
+  scale_x_date(date_breaks = "3 months") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+It is very clear that, these graphs have some in common. For example, in 2020 March, BIST and House Sales decreased together with the increase in Dollar Prices. Also, it is very obvious that USD and BIST lines moves inversely, while USD is increasing the BIST is decreasing. However, House Sales line is less correlated with other that they each other. 
+
+#   Appendices
+[Here](https://bu-ie-360.github.io/spring21-yulucoban/files/hw1.Rmd) the RMD File including the code chunks can be found.
+
+

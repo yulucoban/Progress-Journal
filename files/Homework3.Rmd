@@ -1,0 +1,486 @@
+---
+title: "Stationarity of Electricity Consumption Data in Turkey over 2016-2021"
+author: "Yusuf Ulucoban"
+date: "31 05 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE,
+	warning = FALSE)
+```
+
+# Introduction
+
+In this study, the electricity consumption of Turkey will be aimed to be understand with its details. The data is taken from the [EPIAS](https://seffaflik.epias.com.tr/transparency/) website as hourly data from Jan 2016 to May 2021. The aim of the study is performing tasks that are given, building an ARIMA model to predictions and comparing test results for 14 days from 6th of May to 20th of May in 2021.  
+To serve this aim, the time series data will repeatedly be analyzed by plotting and useful tests. Firstly, the data should be stationary. However, the electricity consumption data is non-stationary. Hence, the first task will be the transforming that data from non-stationary to stationary one. To make this transformation, differencing, decomposition, deseasonalizm and further analyses will be needed. Explanations and furher calculations will be provided in the next chapters. Right after reaching the stationary data, forecasts will be made by using Moving Average and Auto Regressive models. Also, the tasks will be performed. 
+
+
+# Data Manipulation and Visualization
+
+After importing the data from the website, it is transformed to data table form and manuplations are done about it such as converting date column to date variable. Also, new data table is created to analyze daily data and average of the consumptions are added. 
+```{r echo=FALSE, include=TRUE}
+#adding libraries
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(lubridate)
+library(data.table)
+library(ggcorrplot)
+library(GGally)
+library(corrplot)
+library(forecast)
+
+library(urca)
+library(fpp)
+
+
+#data corrections
+elec = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/Consumption.xlsx")
+elecdt = data.table(elec)
+elecdt$Date = dmy(elecdt$Date)
+elecdt$Consumption = as.double(elecdt$Consumption)
+elecdt$Hour = rep(0:23, length.out=nrow(elecdt))
+
+elecdt_daily=elecdt%>%
+  group_by(Date)%>%
+  summarise(Consumption=mean(Consumption))
+
+elecdt_daily = data.table(elecdt_daily)
+```
+
+```{r echo=TRUE, include=TRUE, out.width="50%"}
+head(elecdt,10)
+
+head(elecdt_daily,10)
+```
+
+Since visualizing a hourly data for 5 years does not seems optimal, the daily data is plotted for visualizations. 
+
+```{r, include=TRUE, echo=FALSE}
+ggplot(elecdt_daily,aes(x=Date,y=Consumption))+
+  geom_line(color="palegreen1")+
+  labs(x="Date",y="Daily Mean Consumption (mWh)", title=" Daily Mean Electricity Consumption in Turkey ")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_x_date(date_breaks = "6 month", date_labels =  "%b %Y")
+```
+
+As expected, seasonal trends such as higher consumption in summers and lower in winters and temporary changes in consumption such as Covid-19 pandemic in 2020 March are obvious.  
+
+# Seek for Stationary Data
+
+To make sure that data is non-stationary and has seasonal increases and decreases, applying unit root test would be wise.  
+Unit root test will test if the consumption is stationary or not. The null hypothesis claims that; the data is stationary. So, it is expected that our data set will reject the null hypothesis.  
+  
+ACF and PACF are calculated for daily data.
+
+```{r, include=TRUE, echo=FALSE, out.width="50%"}
+plot(acf(elecdt_daily$Consumption, lag.max = 30, plot=FALSE), main = "Autocorrelation of Daily Mean Electricity Consumption", 
+     col="sienna1", lwd=2, xlab="Lag in Days") 
+plot(pacf(elecdt_daily$Consumption, lag.max = 30, plot=FALSE), main = " Partial Autocorrelation of Daily Mean Electricity Consumption", 
+     col="sienna1", lwd=2, xlab="Lag in Days") 
+```
+
+It is obvious that there is a pattern that repeats every week with lag value equals 7.  
+For Unit Root test;
+
+```{r, include=TRUE, echo=FALSE}
+summary(ur.kpss(elecdt_daily$Consumption))
+```
+
+Since the seasonality is clear and also, comparison of unit root test value and critical value is showed that the daily electricity consumption data is non-stationary. For further calculations, the data is needed to be stationary.  
+To reach more stationary data, let's calculate differenced one and its ACF, PACF, Unit Root Test Value.
+
+```{r, include=TRUE, echo=TRUE}
+elecdt_daily[,lag1:=shift(elecdt_daily$Consumption,1)]
+elecdt_daily[,lag7:=shift(elecdt_daily$Consumption,7)]
+elecdt_daily[,diff1and7:=elecdt_daily$Consumption-0.45*lag7-0.55*lag1]
+```
+
+This data manipulation part with lagging and differencing is highly important. Firstly, the data is lagged with value equals 1 because of the highest ACF and PACF values. Also, the value is lagged with value equals 7 because 7 has the second highest ACF and PACF. In the, 0.45 and 0.55 part, these values are chosen heuristic because of the their ACF and PACF values and their comparison such as PACF 7 is lower than PACF 1 and gets smaller in each week.  
+With that formulation, it is possible to say that each day will carry the effect of yesterday with approximately 0.55 and two days ago with approximately 0.55 * 0.55 = 0.30. Also, each day will carry the effect of the same day in the last week with approximately 0.45 and one more week ago with approximately 0.45 * 0.45 = 0.20. *However, it is important not to forget that this approach includes highly analogical touch.*  
+  
+For further steps and corrections let's plot the differenced data. 
+
+```{r, include=TRUE, echo=FALSE}
+ggplot(elecdt_daily, aes(x=Date, y=diff1and7)) +
+        geom_line(size = 0.6, color="palegreen1") +
+        labs(title = "Differences between Daily Consumed Electricity and its Forecast (mWh) in Turkey over 2016-2021", 
+             x = "Date",
+             y = "Difference (mWh)") +
+        scale_x_date(date_breaks = "6 months") +
+        theme_classic() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Now, the data seems more escaped from seasonalities with 0 mean. However, there is still outliers that may be occurred in  national and religious holidays in which consumption levels get considerably lowered. For exact results, the differences that are plotted should distributed normally with 0 mean which is easy to control.
+
+```{r, include=TRUE, echo=FALSE}
+ggplot(elecdt_daily, aes(x=diff1and7)) +
+        geom_histogram(aes(y=..density..), colour="sienna1", fill="palegreen1", bins = 15)+ 
+        labs(title = "Histogram of Daily Differenced Electricity Consumption (mWh) in Turkey over 2016-2020", 
+             x = "Daily Differenced Electricity Consumption (mWh)",
+             y = "Density") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Also, it is possible that check ACF and PACF values of differenced data. 
+
+```{r, include=TRUE, echo=FALSE, out.width="50%"}
+plot(acf(elecdt_daily$diff1and7[8:1967], lag.max = 30, plot=FALSE), main = "Autocorrelation of Differenced Daily Mean Electricity Consumption", 
+     col="sienna1", lwd=2, xlab="Lag in Days") 
+plot(pacf(elecdt_daily$diff1and7[8:1967], lag.max = 30, plot=FALSE), main = " Partial Autocorrelation of Differenced Daily Mean Electricity Consumption", 
+     col="sienna1", lwd=2, xlab="Lag in Days") 
+```
+
+Although there is still weekly seasonalities and effects of each yesterdays, values are way better than the previous values. For a last step to conclude the data is stationary, let's apply unit root test. 
+```{r, include=TRUE, echo=FALSE}
+summary(ur.kpss(elecdt_daily$diff1and7))
+```
+
+The value of the test-statistic is decreased from 1.8597 to 0.0099 which proves that our data is now stationary and appropriate to move on. 
+
+
+# Time Series Decomposition
+Firstly, the time series object is created to utilize the ts function, decompose. In order to decrease weekly effect more, ts object  is constructed with frequency 7.
+
+```{r plot ts, include=TRUE,echo=FALSE}
+tsdata=ts(elecdt_daily$diff1and7,frequency = 7)
+plot(tsdata, main="Time Series of Adjusted Consumption", col = "palegreen1")
+```
+
+Here, making the frequency 7 turned out that it is the best way to examine. When the frequency equals 30 to reduce monthly effects, the model becomes less desirable.
+Above, you can see the ts plot of adjusted consumption. When we examine the plot, we can say that variance does not increases over time. Therefore, we prefer to use additive decomposition instead of multiplicative decomposition method.
+
+```{r decompose, echo=FALSE}
+cons_dec_additive=decompose(tsdata,type="additive")
+plot(cons_dec_additive, col = "purple") 
+```
+
+Above, you can see additive decomposition of adjusted consumption. By looking the random part, we can say there are still outliers that are caused by special days such as holidays and public days. However, since our adjusted data is stationary enough, it will be enough to clear our ts object from seasonality and trend.
+However, these outliers affects trend plot with a little seasonality. with 2 peeks for each. The first one is for "Ramazan" and the second one is for "Kurban" holidays. These two may affect our model but the details will be investigated in further parts. 
+
+### Reducing Outliers
+
+In this part, it will be mentioned that, the outliers in the data are able to be reduced, even removed. The method for that calculations will be mentioned but will not be applied.
+To reduce and even remove outliers is possible by creating a new variable for each day that shows that the day is national or religious holiday. Also, further calculations are easy to be achieved by creating another diff1and7 for "elecdt_daily" data with values of new column.  
+*However, because the t-value in Unit Root Test and distribution type of data is enough to claim that the data is stationary, these steps will not be applied.*
+
+
+```{r detrend, echo=FALSE}
+deseasonalized=tsdata-(cons_dec_additive$seasonal)
+detrend_deseasonalized=deseasonalized-(cons_dec_additive$trend)
+ts.plot(detrend_deseasonalized, main="Time Series of Detrended & Deseasonalized Adjusted Consumption", col = "palegreen1")
+```
+
+Above you can see the detrended and deseasonalized adjusted consumption which will be named as normal of consumption in the remaining part of the study.
+
+Let's look at the Unit Root Test results to make sure that the data that is calculated from decompositions is still stationary.
+
+```{r tslast,message=FALSE, warning=FALSE, echo=FALSE}
+detrend_deseasonalized %>% ur.kpss() %>% summary()
+```
+
+According to the KPSS Unit Root Test results, our test-statistic value 0.0031 is less than our last test results 0.0099 and still smaller than the critical values 0.347. 
+
+Finally, let's take a look at our ts object, which we will put in the arima model, in detail and then set up our model.
+
+```{r tsplot,echo=FALSE}
+tsdisplay(detrend_deseasonalized, col = "purple")
+```
+
+Since our ACF / PACF graphics and our detrend & deseasonalized plot are suitable for stationarity, we can move on to the model selection part with arima.
+
+# AR Models for Normal of Consumption
+
+```{r model1,message=FALSE, warning=FALSE, echo=FALSE}
+model1=arima(detrend_deseasonalized, order=c(1,0,0))
+print(model1)
+```
+
+```{r model2,message=FALSE, warning=FALSE, echo=FALSE}
+model2=arima(detrend_deseasonalized, order=c(2,0,0))
+print(model2)
+```
+
+```{r model3,message=FALSE, warning=FALSE, echo=FALSE}
+model3=arima(detrend_deseasonalized, order=c(3,0,0))
+print(model3)
+```
+
+```{r model4,message=FALSE, warning=FALSE, echo=FALSE}
+model4=arima(detrend_deseasonalized, order=c(4,0,0))
+print(model4)
+```
+
+```{r model5,message=FALSE, warning=FALSE, echo=FALSE}
+model5=arima(detrend_deseasonalized, order=c(5,0,0))
+print(model5)
+```
+
+```{r model6,message=FALSE, warning=FALSE, echo=FALSE}
+model6=arima(detrend_deseasonalized, order=c(6,0,0))
+print(model6)
+```
+
+As you can observe, increases in p are resulted as decreases in AIC which shows that the model becomes better. However, for each iteration that includes bigger p, makes model more complicated and it is compiled slowly.
+
+# MA Models for Normal of Consumption
+
+```{r model7,message=FALSE, warning=FALSE, echo=FALSE}
+model7=arima(detrend_deseasonalized, order=c(0,0,1))
+print(model7)
+```
+
+```{r model8,message=FALSE, warning=FALSE, echo=FALSE}
+model8=arima(detrend_deseasonalized, order=c(0,0,2))
+print(model8)
+```
+
+```{r model9,message=FALSE, warning=FALSE, echo=FALSE}
+model9=arima(detrend_deseasonalized, order=c(0,0,3))
+print(model9)
+```
+
+```{r model10,message=FALSE, warning=FALSE, echo=FALSE}
+model10=arima(detrend_deseasonalized, order=c(0,0,4))
+print(model10)
+```
+
+```{r model11,message=FALSE, warning=FALSE, echo=FALSE}
+model11=arima(detrend_deseasonalized, order=c(0,0,5))
+print(model11)
+```
+
+```{r model12,message=FALSE, warning=FALSE, echo=FALSE}
+model12=arima(detrend_deseasonalized, order=c(0,0,6))
+print(model12)
+```
+
+As you can observe, increases in q are also resulted as decreases in AIC which shows that the model becomes better. However, for each iteration that includes bigger q, makes model more complicated and it is compiled slowly.
+
+
+# Building an ARIMA Model
+
+To find out the best fitting model, the "auto.arima" function is able to be used. 
+
+```{r autoarima,message=FALSE, warning=FALSE, echo=TRUE}
+fitted=auto.arima(detrend_deseasonalized, seasonal=FALSE, trace=T, max.p = 10, max.q = 10, max.P = 10, max.Q = 10)
+```
+
+According to results of auto.arima, best model is ARIMA(3,0,0). When finding the best model, Arima looks to the AIC and BIC values. Lower AIC or BIC is better for the reliable of the model. AIC estimates the relative amount of information lost by a given model and BIC looks penalty for the number of parameters.
+Here, the "auto.arima" function found the value (3,0,5) first but after some iterations it turn out that the model do not found the same model although it has lower AIC and BIC values. Hence, I preferred to use the model (3,0,5) that function found it early.
+Below, you can see the coefficients of the ARIMA(3,0,5) model and corresponding AIC and BIC values.
+
+```{r bestmodel,message=FALSE, warning=FALSE, echo=FALSE}
+bestmodel=arima(detrend_deseasonalized, order=c(3,0,5))
+print(bestmodel)
+AIC(bestmodel) #AIC
+BIC(bestmodel) #BIC
+```
+
+ARIMA(3,0,5) model will be used to forecast the electricity consumption between 6th of May and 20th of May in 2021.
+
+```{r forecast , message=FALSE, warning=FALSE, echo=FALSE}
+model_forecasted=predict(bestmodel, n.ahead = 14)$pred
+```
+
+
+# Plotting the Forecast vs Actual for 14 Days
+
+First of all, a daily forecast will be made with arima model that is prepared. Then, decomposition moves that is applied to reach stationary consumption data will be undone.  
+Later, the first manipulations such as lagging the data in order to reducing effects that are shown in ACF and PACF plots, will be undone in order to reach predictions.
+
+```{r forecast2,message=FALSE, warning=FALSE, echo=FALSE}
+last_trend_value=as.numeric(tail(rep(cons_dec_additive$trend[!is.na(cons_dec_additive$trend)],3),14))
+seasonality=as.numeric(tail(cons_dec_additive$seasonal,14))
+#back to the original series
+model_forecast=model_forecasted+last_trend_value+seasonality
+```
+
+```{r forecast3,message=FALSE, warning=FALSE, echo=FALSE}
+daily_forecast <- model_forecast + as.numeric(tail(elecdt_daily$lag7,14)*0.45) + as.numeric(tail(elecdt_daily$lag1,14)*0.55)
+lastplot = c()
+lastplot = data.table(lastplot)
+lastplot$Date = (elecdt_daily$Date[1954:1967])
+lastplot$Prediction = as.double(daily_forecast)
+lastplot$Actual =(elecdt_daily$Consumption[1954:1967])
+```
+
+```{r plot14,message=FALSE, warning=FALSE, echo=FALSE}
+cols = c("Forecast" = "palegreen1", "Actual" = "purple")
+ggplot() +
+  geom_line(data=data.table(lastplot), aes(x=Date, y=Prediction, color="Forecast"), lwd=1) +
+  geom_line(data=data.table(lastplot), aes(x=Date, y=Actual, color="Actual"), lwd=1) +
+  labs(title = "Predicted vs. Actual Daily Electricity Consumption", 
+       x = "Date",
+       y = "Consumption (mWh)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_manual(values = cols)
+```
+
+The plot shows that the ARIMA model is not very good because of the residuals. There are some errors about predicting the daily values. However, it is important not to forget that the time frame 6th May-20th May involves both religious and national holidays.  
+To prove that the model fits better for different weeks, let's look at 28 days time frame for ARIMA(3,0,4) model right after dealing with the performance measures.
+
+## Performance Measures (Back-Testing) for 14 Days Prediction
+
+Testing the prediction we make as a result of the model we have set up is a feedback mechanism that shows our performance. For this reason, we compare our actual and forecasted data and look at measures such as mean, sd, error, FBias, MAPE, MAD, WMAPE.
+
+```{R TEST1,message=FALSE, warning=FALSE, echo=FALSE}
+accu = function(actual, forecasted){
+  n = length(actual)
+  error=actual-forecasted
+  mean = mean(actual)
+  sd = sd(actual)
+  FBias = sum(error)/sum(actual)
+  MAPE = sum(abs(error/actual))/n
+  MAD = sum(abs(error))/n
+  WMAPE = MAD / mean
+  l = data.frame(n, mean, sd, error, FBias, MAPE, MAD, WMAPE)
+  return(l[1,])
+}
+```
+
+```{r final1, message=FALSE,echo=FALSE}
+testing=accu(lastplot$Actual,lastplot$Prediction)
+testing
+```
+
+# Plotting the Forecast vs Actual for 28 Days
+
+```{r forecast4,message=FALSE, warning=FALSE, echo=FALSE}
+model_forecasted=predict(bestmodel, n.ahead = 28)$pred
+
+
+last_trend_value=as.numeric(tail(rep(cons_dec_additive$trend[!is.na(cons_dec_additive$trend)],3),28))
+seasonality=as.numeric(tail(cons_dec_additive$seasonal,28))
+#back to the original series
+model_forecast=model_forecasted+last_trend_value+seasonality
+
+
+daily_forecast <- model_forecast + as.numeric(tail(elecdt_daily$lag7,28)*0.45) + as.numeric(tail(elecdt_daily$lag1,28)*0.55)
+
+
+lastplot = c()
+lastplot = data.table(lastplot)
+lastplot$Date = (elecdt_daily$Date[1940:1967])
+lastplot$Prediction = as.double(daily_forecast)
+lastplot$Actual =(elecdt_daily$Consumption[1940:1967])
+```
+
+```{r plot28,message=FALSE, warning=FALSE, echo=FALSE}
+ggplot() +
+  geom_line(data=data.table(lastplot), aes(x=Date, y=Prediction, color="Forecast"), lwd=1) +
+  geom_line(data=data.table(lastplot), aes(x=Date, y=Actual, color="Actual"), lwd=1) +
+  labs(title = "Predicted vs. Actual Daily Electricity Consumption", 
+       x = "Date",
+       y = "Consumption (mWh)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_manual(values = cols)
+
+```
+
+
+## Performance Measures (Back-Testing) for 28 Days Prediction
+
+Comparing predictions for 14 days and 28 days would be wise. It is obvious that the second predictions will have lower errors, MADE, MAP ,WMAPE etc.
+
+```{r final2, message=FALSE,echo=FALSE}
+testing=accu(lastplot$Actual,lastplot$Prediction)
+testing
+```
+
+
+As expected, the model fits right for normal weeks but the week that involves "Kurban Bayramı" and "19 May National Holiday" is an extreme week. The deviations from the forecast for an harshly extreme week is normal to be expect. Also, the 19 of May is Saturday which is also a different challenge for our model because in each Sunday, the model expect to consumption to be decrease. However, because the consumption in Saturday is also low, the model fails to be predict correctly.
+
+## Consideration of National and Religious Holidays
+
+For a prediction model that will forecast an extreme model, as we had in our study, is available to be improved. There are several methods to improve.  
+Firstly, the new binary column should be added that equals 1 if the day is national/religious holiday and equals 0 if not. Then, for each holidays the deviations from predictions will be noted.  
+Later, while forecasting a holiday, the averages of these deviations would be used.  
+However, since our model fits good enough, the further calculations will not be realized although it is not a perfect model.
+
+# Daily Prediction with ARIMA Model for 21th May
+
+With the same calculations that are made to predict last 14 days, the consumption of tomorrow "*21 May*" will be forecasted. 
+
+```{r, include=TRUE, echo=FALSE}
+ts_random = ts(cons_dec_additive$random, freq = 7)
+model <- arima(ts_random, order=c(3,0,2))
+model_forecast <- predict(bestmodel, n.ahead = 1)$pred
+last_trend_value = as.numeric(tail(rep(cons_dec_additive$trend[!is.na(cons_dec_additive$trend)],1),1))
+seasonality=as.numeric(tail(cons_dec_additive$seasonal,1))
+differenced_forecast = model_forecast + last_trend_value + seasonality
+#elecdt_daily[,diff1and7:=elecdt_daily$Consumption-0.45*lag7-0.55*lag1]
+daily_forecast <- differenced_forecast + (elecdt_daily$Consumption[1961])*0.45 + (elecdt_daily$Consumption[1967])*0.55
+daily_forecast
+```
+
+Since forecasting with weekly trends is more accurate, the frequency of data is chosen as 7. The first data includes 47208 observations as hourly, which equals 1967 days. Also, 1967 days equals 281 weeks, that is  why the result is shown as "(282,1)".
+
+
+# Sharing Out the Daily Prediction
+
+The forecast for 21 May is already made. However, the hourly forecasts are not reached yet. To reach hourly values, each of the previous "Friday" values are taken consideration. For each Friday, the percentages of the each hour for total consumption in the day and their average are calculated. 
+```{r, include=TRUE, echo=FALSE}
+i=1
+j=1
+k=1
+while(j<1968){
+  while(i<25){
+    elecdt$mean[k]=elecdt_daily$Consumption[j]
+    k=k+1
+    i=i+1
+  }
+  j=j+1
+  i=1
+}
+elecdt$mean = as.double(elecdt$mean)
+elecdt$ratio = 100*elecdt$Consumption/(elecdt$mean * 24)
+
+hourlyperc=elecdt[wday(Date) == 4]%>%
+  group_by(Hour)%>%
+  summarise(Percantage=mean(ratio))
+```
+
+```{r, include=TRUE, echo=TRUE}
+head(hourlyperc)
+```
+
+Later, the daily prediction is shared out with the hourly percentages for Fridays. Also, Actual vs. Prediction graph is plotted to compare these two. 
+
+```{r, include=TRUE, echo=FALSE}
+daily_forecast = as.double(daily_forecast)
+hourlyperc$Prediction = hourlyperc$Percantage * daily_forecast * 24 / 100
+
+x = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/RealValue.xlsx")
+hourlyperc$Real = x$Consumption
+
+ggplot() +
+  geom_line(data=hourlyperc, aes(x=Hour, y=Real, color="Actual"), lwd=1) +
+  geom_line(data=hourlyperc, aes(x=Hour, y=Prediction, color="Forecast"), lwd=1) +
+  labs(title = "Predicted vs. Actual Daily Electricity Consumption", 
+       x = "Hours",
+       y = "Consumption (mWh)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_manual(values = cols)
+```
+
+It turns out that the forecast model has some errors that may occur because of the different seasonalities data has such as hourly, daily, weekly etc.  
+However, the model looks similar to the actual values enough to accept. 
+
+# Conclusion
+
+Firstly, the data is taken from the [EPIAS](https://seffaflik.epias.com.tr/transparency/) website at hourly levels and converted to a daily level to work on different seasonalities better because the 14 or 28 days predictions were on daily levels. Later, the better time frame is chosen by applying different kind of decompositions at different levels on data such as daily, weekly monthly etc. Then, we started the steps of making electricity consumption stationary. The effect of the days of the week on consumption was observed and eliminated. In PACF analysis, the high value in lag-1 observed, then lag 1 of consumption data was taken to eliminate daily consumption from lag1 Daily consumption is shifted and then subtracted from each other. Also, the weekly effects were observed and eliminated by using lags 7 of consumption.  
+Consequently, the adjusted consumption data obtained were converted to the time series object and the decomposition property of ts was used. Adjusted consumption composed from trend and seasonality.  
+After, the best fitting ARIMA model is reached with "auto.arima" function and further heuristic approaches and also,     estimations are made for normal of consumption for predictions.  
+Later, the 14 days of forecast is made for an extreme week. To prove model fits right, the time frame of prediction is increased to 28 from 14.  
+As a last step, since the homework says that "Assume that we are interested in a predicting the tomorrow’s hourly electricity consumption of Turkey (hourly estimation for each hour for the next 24 hours).", the forecast of 21th May is made at daily level and it is shared out for different hours by using previous hourly distributions. 
+
+**To reach the RMD file and the codes of this study, please [Click](https://bu-ie-360.github.io/spring21-yulucoban/files/Homework3.Rmd).** 

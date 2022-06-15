@@ -1,0 +1,305 @@
+---
+title: "Time Series Regression for Predicting Macroeconomic Indicator: Purchase of Vehicles"
+author: "Yusuf Ulucoban - Spring 2021 - IE360"
+date: "26 04 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE,
+	warning = FALSE)
+```
+
+
+
+# Introduction
+In this case, the aim will be to develop a time series regression model to predict macroeconomic indicator such as "Purchase of Vehicles". In order to create a valid and sufficient model, we will be using different kinds of data that will be mentioned. First of all, to make things clear, all data below are taken from the Data Delivery System of Central Bank of the Republic of Turkey Electronic: [EVDS](https://evds2.tcmb.gov.tr/).  
+To make a certain prediction for Consumer Price Index for Purchase of Vehicles in April 2021, different kinds of data are used, such as previous "Purchase of Vehicles", Dollar exchange rates because purchases are usually generated with Dollar, interest rates since it is a powerful sign of an economic and survey questions that measures the effects of economic situation on people. There are two different survey questions. One of them measures the probability of buying a car over the next 12 months and the other one measures general economic situation expectation over the next 12 months. Firstly every data will be analyzed, their correlation will be checked and if there is an important relation, the data will be used for the prediction model. It should be noted that the steps will be developed by trials. 
+
+The first 10 rows and the structure of data are shown below is manipulated for further steps. 
+
+```{r echo=FALSE, include=TRUE}
+#adding libraries
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(lubridate)
+library(data.table)
+library(ggcorrplot)
+library(GGally)
+library(corrplot)
+library(forecast)
+#taking data
+surveyvehicle = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/Surveyvehicle.xlsx")
+surveysituation = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/Surveysituation.xlsx")
+dolarprices = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/MonthlyDolar.xlsx")
+purchase = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/PurchaseofVehicles.xlsx")
+interest = read_xlsx("C:/Users/yuluc/OneDrive/Desktop/interestrates.xlsx")
+#data manipulation
+surveyvehicle = data.frame(surveyvehicle)
+surveysituation = data.frame(surveysituation)
+dolarprices = data.frame(dolarprices)
+purchase = data.frame(purchase)
+interest = data.frame(interest)
+data=cbind(surveyvehicle$Date, surveyvehicle$Survey, surveysituation$Survey, dolarprices$Value, purchase$Purchase, interest$Rates)
+data = data.frame(data)
+data$X1=ym(data$X1)
+names(data)[names(data) == "X1"] <- "Date"
+names(data)[names(data) == "X2"] <- "Survey.vehicle"
+names(data)[names(data) == "X3"] <- "Survey.situation"
+names(data)[names(data) == "X4"] <- "Dollar"
+names(data)[names(data) == "X5"] <- "Purchase"
+names(data)[names(data) == "X6"] <- "Interest"
+data$Survey.vehicle = as.numeric(data$Survey.vehicle)
+data$Survey.situation = as.numeric(data$Survey.situation)
+data$Dollar = as.numeric(data$Dollar)
+data$Purchase = as.numeric(data$Purchase)
+data$Interest = as.numeric(data$Interest)
+#since i want to hold a data, i create another data frame called observation
+observation = data[1:111,]
+
+head(observation,10)
+str(observation)
+
+```
+
+
+
+# Analysis of Purchase of Vehicles: The Target Variable
+For better understanding of the target variable, CPI for Purchase of Vehicles, plotting could be an option to reach a better point.
+
+```{r echo = FALSE, include = TRUE}
+
+ggplot(observation, aes(x=Date, y=Purchase)) +
+  geom_line(size = 1, colour = "darkred") +
+  labs(title = "CPI for Vehicle Purchase in between 2012-2020", x = "Date", y = "CPI") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, size=9, hjust = 1))
+
+```
+
+As you can guess, fitting a trend line is not easy because the line increases exponentially. For an increase that is exponential, using logarithm function to find a better trend is usually advantageous. Let's look what logarithm of the CPI looks like.
+
+```{r echo = FALSE, include = TRUE}
+
+observation$log.Purchase = log(observation$Purchase)
+
+ggplot(observation, aes(x=Date, y=log.Purchase)) +
+  geom_line(size = 1, colour = "darkred") +
+  labs(title = "Logarithm of CPI for Vehicle Purchase in between 2012-2020", x = "Date", y = "log(CPI)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, size=9, hjust = 1))
+
+```
+
+Now, as you can observe, the line seems less exponential which makes easy to fit a trend line.
+Let's add their basic trend lines to see which one is likely to be improved.
+
+```{r echo = FALSE, include = TRUE, out.width='50%'}
+# Fit regression line
+reg<-lm(Purchase ~ Date, data = observation)
+coeff=coefficients(reg)
+# equation of the line : 
+eq = paste0("y = ", round(coeff[2],1), "*x ", round(coeff[1],1))
+# plot
+plot(observation$Date, observation$Purchase,xlab='Date',ylab='CPI', main='CPI for Vehicle Purchase in between 2012-2020')
+abline(reg, col="darkred")# Fit regression line
+
+
+reg1<-lm(log.Purchase ~ Date, data = observation)
+coeff=coefficients(reg)
+# equation of the line : 
+eq = paste0("y = ", round(coeff[2],1), "*x ", round(coeff[1],1))
+# plot
+plot(observation$Date, observation$log.Purchase,xlab='Date',ylab='Logarithm of CPI', main='Logarithm of CPI for Vehicle Purchase in between 2012-2020')
+abline(reg1, col="darkred")
+```
+
+The trend line seems more accurate to be improved in the logarithm version than the normal version. Because seasonal and other kind of trends can interfere and affect our forecasting model, it is hard to say that the logarithm version is surely better. However, it is likely to be improved. The further analysis such as correlations will conclude that which one will be used in the forecasting model.  
+Additionally, it is better to check that are there any monthly similarities such as all Augusts are maximums of the each year or every winter purchases are decreasing etc. To reach an answer to that question, the autocorrelation function (ACR) that shows the relation of one month with previous months  will be used. Also, examining autocorrelation functions for both Purchases and Logarithm of Purchases.
+
+```{r echo=FALSE, include=TRUE, out.width='50%'}
+plot(acf(observation$Purchase,lag.max=25,plot=FALSE), main="Autocorrelation of Monthly CPI: Purchase of Vehicles")
+plot(acf(observation$log.Purchase,lag.max=25,plot=FALSE), main="Autocorrelation of Monthly CPI: Logarithm of Purchase of Vehicles")
+```
+
+As a result of trend line plots and autocorrelation plots, creating a forecast model on logarithm version seems better if there are not any problems with the correlations that will be examined in the next part.  
+
+
+
+# Analyses of Other Possible Independent Variables
+Firstly, it should be clarified the reasons of the importance for each data. For USD Exchange Rates, the vehicles are usually produced abroad which leads us to think that, if the exchange rates increase, a country will be less powerful to buy new vehicles. For Interest Rates, it shows the power of the economic in the country, which is another important indicator for macroeconomic  measures. Variables include two different survey results. Vehicle survey has the answers of the question that "What is your probability to purchase a new car in next 12 months?". Additionally, Situation survey has the answers of the question that "What is your general economic situation expectation in next 12 months?".  
+Before moving to further analyses to calculate correlations between variables, let's plot all columns to see are there any important similarities between them. Because their measures are hard to compare, we divided CPI by 10 and multiplied Logarith of CPI with 5 to show in one exact chart.
+
+```{r echo = FALSE, include = TRUE}
+ggplot(observation, aes(x=Date)) +
+  geom_line(aes(y=Purchase/10, color= "CPI - Vehicle Purchase / 10"), size=1)+
+  geom_line(aes(y=log.Purchase * 5, color= "Log CPI - Vehicle Purchase * 5"), size=1)+
+  geom_line(aes(y=Dollar, color = "USD"), size=0.75)+
+  geom_line(aes(y=Interest, color = "Int Rate"), size=0.75)+
+  geom_line(aes(y=Survey.vehicle, color = "Survey Vehicle"), size=0.75)+
+  geom_line(aes(y=Survey.situation/3, color = "Survey Situation"), size=0.75)+
+  theme(axis.text.x = element_text(angle = 45))+
+  labs(x="Date",y=" ", title="Independent Variables in between 2012-2020")+
+  theme_minimal()+
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+  scale_x_date(date_labels =  "%Y")+
+  scale_colour_manual(values=c("chartreuse", "chocolate1", "deepskyblue", "purple","pink", "red"))
+```
+
+It can be seen that, they have similarities between different pairs. One of them is the peek in late 2018 that is obvious for green and orange lines. Another one is the oscillation that is accurate for both survey results. Another important similarity is between red line that shows USD exchange rate and blue line that shows the logarithm of CPI.  
+For better and exact calculations, let's have a look their correlations with each other.
+
+```{r echo = FALSE, include = TRUE}
+#since date column is a problem to use correlation functions, we create a new data frame without date column.
+corrdata=observation[,5]
+corrdata = data.frame(corrdata)
+names(corrdata)[names(corrdata) == "corrdata"] <- "Purchase"
+corrdata$log_Prch = observation$log.Purchase
+corrdata$USD = observation$Dollar
+corrdata$S_Vehic = observation$Survey.vehicle
+corrdata$S_Sit = observation$Survey.situation
+corrdata$IntRate = observation$Interest
+#visualizing correlations
+#visualizing correlations
+ggpairs(corrdata)
+```
+
+In this part, the correlation between independent variables and purchases is compared to the correlation between independent variables and logarithm of purchases. Although there differences are very small and negligble, with the result that is driven from analysis of CPI: Purchase of Vehicles, continuing with the logarithm version to create a better forecast would be wise.
+
+
+
+# Forecasting Models
+### Model 1
+After deciding to create a model over the logarithm of the previous CPI's: Purchase of Vehicles, the USD with 0.98, situation survey with -0.66 and interest rate with 0.6 correlations will be used in the first forecasting model.
+
+```{r echo = TRUE, include = TRUE}
+
+model1=lm( log_Prch ~ USD + IntRate + S_Sit, corrdata)
+summary(model1)
+checkresiduals(model1)
+
+```
+
+Although the model has a nice Adjusted R Squared value and p-value, the plot of the residuals seems a bit problematic. Residuals vary from -0.2 to 0.2 which are higher values than they should be and its oscillations should occur less. Also, ACF graph shows that residuals are not clearly independent from each other. The lines over the blue lines represents an issue about affecting the residuals that happens after the one. Lastly, it is also needed that the last graph should look alike to the normal distribution function. Let's examine that could adding a trend variable makes things better.
+
+
+### Model 2
+
+```{r echo = TRUE, include = TRUE}
+
+corrdata=data.table(corrdata)
+corrdata[, trend:= c(1:.N)]
+model2=lm( log_Prch ~ USD + IntRate + S_Sit + trend, corrdata)
+summary(model2)
+checkresiduals(model2)
+
+```
+
+After adding the trend variable to the forecasting model, the results below can be concluded:
+
+  * Model 2 has maximum and minimum residuals with 0.9 and -0.11 while Model 1 has maximum at 0.18 and minimum at -0.18.
+  
+  * Model 2 has far better ACF plot that the Model 1.
+  
+  * The residuals of Model 2 distributed more normally than Model 1.
+  
+  * Residual standard error is dropped from 0.08 to 0.04, which is better.
+  
+  * Last but not least important, Model 2 has higher Adjusted R-Squared Value (0.989) than Model 1 (0.958).
+
+As a result, Model 2 seems better than the Model 1. However, the ACF function is still improvable. In order to reduce the effect of previous  residuals to the new ones, let's add a lag variable to forecasting model. For example: for t=2, lag variable will hold the value of the residual at t=1. Adding the lag variable to the forecasting model will decrease the number of lines that exceed blue line in the ACR plot, which means there will be less correlation between old residuals with the new one.
+
+
+### Model 3
+
+```{r echo = TRUE, include = TRUE}
+
+corrdata[ , lag1:=shift(residuals(model2),1)]
+model3=lm( log_Prch ~ USD + IntRate + S_Sit + trend +lag1, corrdata)
+summary(model3)
+checkresiduals(model3)
+
+```
+
+As it is guessed, the Model 3 turns out to be more clear and better. Residuals plot has less maximum and minimum values with less oscillations. ACF plot has way better compared the previous ones although there are two lines that exceeds blue line. Also, residuals are distributed much more normally.Since the Model 3 seems the best one so far, further anaylyses will be made with it.  
+Before moving to fitted vs actual values, it is better check that residuals are distributed around 0. Plotting fitted vs residuals may be advantageous.
+
+
+
+```{r echo = FALSE, include = TRUE}
+preddata = corrdata[-1,]
+preddata[,fitted:=fitted(model3)]
+preddata[,residual:=residuals(model3)]
+
+preddata %>%
+  ggplot(aes(x=fitted, y=residual)) + 
+  geom_point(color="purple") +
+  labs(title="Residuals for each Fitted Value", x="Fitted",y="Residuals")+
+  geom_abline(slope=0, intercept=0)
+
+```
+
+
+Although there are some dots with 0.1 errors, they may be named as outlier and be ignored.  
+Since the residuals are good enough to compare actual and fitted values, let's plot the predicted and actual values.
+
+```{r echo = FALSE, include = TRUE}
+
+preddata %>%
+  ggplot(aes(x=fitted, y=log_Prch)) + 
+  geom_point(color="purple") +
+  labs(title="Actual vs Fitted Values", x="Fitted",y="Actual")+
+  geom_abline(slope=1, intercept=0)
+
+```
+
+A line of Fitted=Actual is also added to make comparisons easy. As you can observe, the graph seems accurate enough to move to the next part that is plotting the prediction model for whole time series and compare it with the actual CPI: Purchase of Vehicles.
+
+
+
+# Plotting the Forecast Model
+After applying the forecast formula for previous months, the forecast data for previous months is added. Then, the forecast and actual values are plotted to visualize.
+
+```{r echo=FALSE, include=TRUE}
+corrdata$Date = data$Date[1:111]
+preddata$Date = corrdata$Date[-1]
+preddata[,Forecast:=exp(fitted)]
+
+ggplot(preddata ,aes(x=Date)) + 
+  geom_line(aes(x = Date, y = Forecast, color = "Forecast"), size=1) +
+  geom_line(aes(x = Date, y = Purchase, color = "Actual"), size=1) +
+  labs(title = "Forecast vs Actual", x = "Time", y = "CPI: Purchase of Vehicles", color=" ") +
+  theme_minimal() +
+  scale_color_manual(values=c("orange", "purple"))
+```
+
+# Forecast of the Next Month: April 2021
+Lastly, as a result of the study the April 2021 forecast for the CPI: Purchase of Vehicles is derived from the Model 3.
+```{r echo=FALSE, include=TRUE}
+
+preddata=rbind(preddata,data.table(Date=as.Date("2021-04-01")),fill=T) 
+preddata[is.na(S_Sit)==T,S_Sit:= data[112,3]]
+preddata[is.na(USD)==T,USD:= data[112,4]]
+preddata[is.na(IntRate)==T,IntRate:= data[112,6]]
+preddata[is.na(trend)==T,trend:= 112]
+preddata[is.na(lag1)==T,lag1:= 2.464582e-02 ]
+
+expected = predict(model3, preddata[is.na(fitted)==T])
+pred4.21 = exp(expected)
+
+preddata[111,9] = expected
+preddata[111,12] = pred4.21 
+```
+
+```{r echo=TRUE, include=TRUE}
+pred4.21
+```
+
+# Conclusion
+In this study, Consumer Price Index(CPI): Purchase of Vehicles data is taken from the website [https://evds2.tcmb.gov.tr/](https://evds2.tcmb.gov.tr/). Firstly the data analyzed and observed that it has an exponentially increasing trend over time. To prevent that exponentiality damages prediction model, the logarithm of the each purchase is derived and used for further calculations. Additionally, to create an accurate model, other sources such as Surveys, USD Exchange Rates, Interest Rates etc. are used after deciding that their importance according to their correlations. A forecast model that involves some of them is created and used. Then, the observations on ACF and Distribution Function showed that the model may better off with independent trend variable. Although adding an independent trend variable made the model more successful, there were still correlations between residuals, which shows that the model is still improvable. Later, adding another independent variable which is called lag helped the model to guess all the actual values more accurate.   
+After all, the last model has a good Adjusted R Value which shows the integrity of the model. By the plot observations, there are not any important relation between residuals and all residuals distributed along zero as it should be. Lastly, the actual and predicted values are plotted to observe that the model is sufficient. Additionally, final result of the next forecast for the April 2021 came out to be "520.3584".  
+  
+**To reach the RMD file and the codes of this study, please [Click](https://bu-ie-360.github.io/spring21-yulucoban/files/Homework2.Rmd).** 
+
