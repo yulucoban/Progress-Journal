@@ -2,6 +2,8 @@
 
 # Recommendation System Project 
 
+[Here](files/FinalReport.pdf) is the final report and documentation for “Recommendatiton System in Dolap App” !
+
 # Time Series Analysis for IE360
 
 ## Homework 1
