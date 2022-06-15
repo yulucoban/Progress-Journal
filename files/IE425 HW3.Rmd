@@ -1,0 +1,213 @@
+---
+title: "425 HW3"
+author: "Eda Kocakarin & Yusuf Ulucoban - IE425 - Spring 2022"
+date: '2022-05-14'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+library(kernlab)
+library(data.table)
+library(rpart)
+library(rpart.plot)
+library(tree)
+library(caTools)
+library(data.table)
+library(RColorBrewer)
+library(randomForest)
+library(caret)
+library(ROCR)
+library(Metrics)
+```
+## 1  
+  
+It is available as a pdf in the submission.  
+
+## 2
+
+### Consider the data set “Default” in the package “ISLR”, where “default” is the output attribute. Partition the data set into training and test sets with 75% going into the training set by using a seed value of 425. Using k-NN classification with different values of k between 1 and 10, determine the error rate, sensitivity, and specificity for the instances in the test set.
+
+First of all, categorical variable is eliminited and numerical input variables are scaled. Then for train&test sets, 0.75 ratio is used. Train &test and output's train&test datasets are formed.
+For k=1 to k=10, different KNN values are used to predict "default" output. Concerning different kNN values, error rate, sensitivity and specificity are calculated. Above you can see the result table.
+
+```{r }
+## knn classification
+library(class)
+library(ISLR)
+def=Default
+set.seed(425)
+def2=def[,-2]
+def3=scale(def2[,-1])
+train=sample(1:10000,7500)
+
+train.def=def3[train,]
+test.def=def3[-train,]
+train.def.output=def2$default[train]
+test.def.output=def2$default[-train]
+
+```
+
+```{r }
+knn.pred.def = NULL
+error.rate.def = NULL
+sensitivity.def= NULL
+specificity.def= NULL
+
+for(i in 1:10){
+set.seed(425)
+knn.pred.def=knn(train.def,test.def,train.def.output,k=i)
+error.rate.def[i] = mean(test.def.output != knn.pred.def)
+table=table(test.def.output,knn.pred.def)
+sensitivity.def[i]=sensitivity(table)
+specificity.def[i]=specificity(table)
+}
+results=data.table(error.rate.def, sensitivity.def, specificity.def)
+results
+```
+
+Minimum of these value are selected and these minimum values kNN number determined. 
+
+```{r}
+min.error.rate = min(error.rate.def)
+Kdef.error = which(error.rate.def == min.error.rate)
+#KNN=9&10 has the smallest error rate which:
+min.error.rate
+
+max.sensitivity = max(sensitivity.def)
+Kdef.sensitivity = which(sensitivity.def == max.sensitivity)
+#KNN=9 has the highest sensitivity rate which:
+max.sensitivity
+
+min.specificity=min(specificity.def)
+Kdef.specificity = which(specificity.def == min.specificity)
+#KNN=1 has the smallest specificity rate which:
+min.specificity
+```
+
+
+## 3
+### A) Partition the data set into training and test sets with 80% going into the training set by using a seed value of 425. Whenever you need to use set.seed function, use set.seed(425).
+
+```{r,echo=FALSE}
+hr=read.csv("C:/Users/yuluc/OneDrive/Desktop/HR.csv", header = TRUE, sep = ",")
+```
+
+```{r }
+#train and test sets are splitted using split from CaTools
+set.seed(425)
+split=sample.split(hr$left,SplitRatio=0.8)
+hr_train=subset(hr,split==TRUE)
+hr_test=subset(hr,split==FALSE)
+
+```
+
+### B) Fit a logistics regression model using the observations in the training dataset. Comment on which input attributes are important in making predictions.
+
+To examine the importance input variables, lets add all input variables into the logistic regression model and make comments.
+
+```{r , echo=FALSE}
+lr16=glm(left~satisfaction_level+last_evaluation+number_project+average_montly_hours+time_spend_company+Work_accident+promotion_last_5years+sales+salary,data=hr_train,family="binomial")
+summary(lr16)
+#AIC: 10298
+```
+Stars represent importance of input attributes. As you can see below, some features are ***very important with 3 star*** in making predictions.
+
+-satisfaction_level
+
+-last_evaluation
+
+-number_project
+
+-average_montly_hours
+
+-time_spend_company
+
+-Work_accident
+
+-promotion_last_5years
+
+-salesRandD
+
+-salarylow
+
+-salarymediuM
+
+Besides, salesmanagement* has very ***low importance*** on model prediction.
+Lastly, some input attributes are ***not important*** to construct a model.
+
+-saleshr
+
+-salesIT
+
+-salesmarketing
+
+-salesproduct_mng
+
+-salessales
+
+-salessupport
+
+-salestechnical 
+
+Since there are different types of sales input attribute that are not significant for this model, lets eliminate "sales" input attribute and construct new model.
+
+```{r , echo=FALSE}
+lr15=glm(left~satisfaction_level+last_evaluation+number_project+average_montly_hours+time_spend_company+Work_accident+promotion_last_5years+salary,data=hr_train,family="binomial")
+summary(lr15)
+#AIC: 10326
+```
+
+When we look at the AIC value we can say that even there is non-significant attributes, first model is better. Therefore, continuing with the first model is meaningful.
+
+
+### C) Provide the Confusion Matrix along with sensitivity, specificity, precision and recall on the test set obtained by the logistic regression model.
+
+We continue with prediction part. Mean for predicted "left" is 0.1829517 while test dataset "left" is 0.4193925.
+
+```{r , echo=FALSE}
+prediction_hrleft=predict(lr16, hr_test, type="response")
+summary(prediction_hrleft)
+tapply(prediction_hrleft,hr_test$left,mean)
+```
+We need to determine thresholds for cutoff values.
+
+```{r}
+## Confusion matrix  different threshold=cutoff values
+#threshold>=0.4
+table(hr_test$left,prediction_hrleft>=0.4)
+#threshold>=0.35
+table(hr_test$left,prediction_hrleft>=0.35)
+#threshold>=0.3
+table(hr_test$left,prediction_hrleft>=0.3)
+#threshold>=0.2
+table(hr_test$left,prediction_hrleft>=0.2)
+```
+Best cutoff value is>=0.4 since sum of TP an FN value is higher in this threshold.
+As sensitivity (TPR) increases, specificity (1-FPR) drops in 0.4 cutoff. Then we will use 0.4 threshold to convert left values 1 or 0.
+
+```{r , echo=FALSE}
+prediction.hrleft=NULL
+for(i in 1:3000){
+if(prediction_hrleft[i]>=0.4){
+  prediction.hrleft[i]=1}
+if(prediction_hrleft[i]<0.40){
+  prediction.hrleft[i]=0}}
+
+prediction.hrleft=as.factor(prediction.hrleft)
+hr_test.left=as.factor(hr_test$left)
+confusionMatrix( prediction.hrleft,hr_test.left, positive = "1")
+```
+
+### D) Draw the ROC curve using the ROCR package and provide the auc value.
+
+Below you can see ROC curve.
+
+```{r , echo=FALSE,warning=FALSE}
+predleftROC=prediction(prediction_hrleft,hr_test$left)
+perf=performance(predleftROC,"tpr","fpr")
+plot(perf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+auc(hr_test$left, prediction_hrleft)
+```
+Model's AUC can be seen above which is sufficient enough.

@@ -1,0 +1,318 @@
+---
+title: "IE425 HW2"
+author: "Eda Kocakarin & Yusuf Ulucoban - IE425 - Spring 2022"
+date: '2022-04-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(kernlab)
+library(data.table)
+library(rpart)
+library(rpart.plot)
+library(tree)
+library(caTools)
+library(data.table)
+library(RColorBrewer)
+library(randomForest)
+library(caret)
+
+hr=read.csv("/Users/edakocakarin/Desktop/IE425/HR.csv", header = TRUE, sep = ",")
+toyota=read.csv("/Users/edakocakarin/Desktop/IE425/ToyotaCorolla.csv", header = TRUE, sep = ",")
+
+```
+
+## 1
+### A
+
+```{r }
+#train and test sets are splitted using split from CaTools
+set.seed(425)
+split=sample.split(hr,SplitRatio=0.8)
+hr_train=subset(hr,split==TRUE)
+hr_test=subset(hr,split==FALSE)
+
+set.seed(425)
+trainctrl_hr = trainControl(method = 'repeatedcv', number = 10, repeats = 5)
+
+```
+
+### B
+
+Determine the best random forest (based on the random forest package) by using 10-fold
+cross validation five times with the caret package on the training set by playing with the mtry
+and ntree parameters. What are the best values of these two parameters and what is the out-ofbag accuracy? Comment on which input attributes are important in making predictions.
+
+We do experiment with the parameters mtry within the range [3, number of input attributes] and ntree=100,200,300,400,500, try to obtain the best result in terms of accuracy since the problem is regression problem. Then we report the Accuracy in the test set using the randomForest package.
+
+```{r, echo=FALSE,warning=FALSE,eval = FALSE}
+#train control argument of cross validation is given
+hr_test$left=as.factor(hr_test$left)
+hr_train$left=as.factor(hr_train$left)
+library(doParallel)
+
+cl <- makePSOCKcluster(5)
+registerDoParallel(cl)
+
+#random forest of 100 trees with changing mtry values
+rf100_hr=train(left~., data=hr_train, method = "rf", trControl = trainctrl_hr, ntree = 100, tuneGrid = expand.grid(.mtry = (3:9)), metric = "Accuracy")
+rf100_hr
+#mtry=9, Accuracy=0.9914158
+
+#random forest of 200 trees with changing mtry values
+rf200_hr=train(left~., data=hr_train, method = "rf", trControl = trainctrl_hr, ntree = 200, tuneGrid = expand.grid(.mtry = (3:9)), metric = "Accuracy")
+rf200_hr
+#mtry=8, Accuracy=0.9914325  
+
+#random forest of 300 trees with changing mtry values
+rf300_hr=train(left~., data=hr_train, method = "rf", trControl = trainctrl_hr, ntree = 300, tuneGrid = expand.grid(.mtry = (3:9)), metric = "Accuracy")
+rf300_hr
+#mtry=7  , Accuracy=0.9914993 
+
+#random forest of 400 trees with changing mtry values
+rf400_hr=train(left~., data=hr_train, method = "rf", trControl = trainctrl_hr, ntree = 400, tuneGrid = expand.grid(.mtry = (3:9)), metric = "Accuracy")
+rf400_hr
+#mtry=7, Accuracy=0.9914324
+
+#random forest of 500 trees with changing mtry values
+rf500_hr=train(left~., data=hr_train, method = "rf", trControl = trainctrl_hr, ntree = 500, tuneGrid = expand.grid(.mtry = (3:9)), metric = "Accuracy")
+rf500_hr
+#mtry=8, Accuracy=0.9914660
+
+stopCluster(cl)
+
+```
+
+```{r, warning=FALSE}
+library(Metrics)
+#Prediction are done with the best ntry values 300 and mtry value 7
+#accuracy(predict(rf300_hr,hr_test), hr_test$left)
+#0.9863333
+#varImp(rf300_hr) #importance first approach
+#rf300_hr$finalModel
+
+# Result---> 
+#  randomForest(x = x, y = y, ntree = 300, mtry = min(param$mtry,      ncol(x))) 
+#                Type of random forest: classification
+#                      Number of trees: 300
+# No. of variables tried at each split: 7
+# 
+#         OOB estimate of  error rate: 0.82%
+# Confusion matrix:
+#      0    1 class.error
+# 0 9121   22 0.002406212
+# 1   76 2780 0.026610644
+```
+
+### C
+Provide the Confusion Matrix along with sensitivity, specificity, precision and recall on the
+test set obtained by the best random forest.
+
+```{r, warning=FALSE}
+
+set.seed(425)
+hr_test$left=as.factor(hr_test$left)
+hr_train$left=as.factor(hr_train$left)
+rf.hr=randomForest(left~.,data=hr_train,mtry=7,ntree=300,nodesize=8,importance=T)
+pred.hr = predict(rf.hr,newdata=hr_test)
+
+
+confusionMatrix(hr_test$left, pred.hr)
+
+```
+
+
+### D
+Repeat part b with the gradient boosting using the caret and gbm packages by playing with
+the interaction.depth, n.trees, shrinkage, and n.minobsinnode parameters. What are the best
+values of these four parameters?
+
+- Max Tree Depth (interaction.depth) = 3,4,5
+ -Number of trees (n.trees) = 100,200,300,400,500
+ - Shrinkage (shrinkage)= 0.1,0.2,0.3
+- Min. Leaf Node Size (n.minobsinnode) = 5,10,15
+
+
+
+```{r,warning=FALSE,eval=FALSE}
+#different parameters to try in gbm in grid
+library(gbm)
+library(caret)
+set.seed(425)
+
+gbmGrid=expand.grid(interaction.depth = c(3, 4, 5), 
+                    n.trees = (4:20)*25, 
+                    shrinkage = (1:3)*0.1,
+                    n.minobsinnode = c(5, 10, 15))
+
+#gradient boosting machine model
+gBoost=train(left~., data=hr_train, method="gbm", metric="Accuracy",verbose = FALSE,
+           trControl = trainctrl_hr, tuneGrid = gbmGrid)
+
+gBoost 
+# Stochastic Gradient Boosting 
+# 
+# 11999 samples
+#     9 predictor
+#     2 classes: '0', '1' 
+# 
+# No pre-processing
+# Resampling: Cross-Validated (10 fold, repeated 5 times) 
+# Summary of sample sizes: 10799, 10799, 10799, 10798, 10800, 10799, ... 
+# Resampling results across tuning parameters:
+
+
+#Accuracy was used to select the optimal model using the largest value. The final values used for the model were n.trees = 500, interaction.depth = 5, shrinkage = 0.2 and n.minobsinnode = 10.
+```
+
+
+
+### E
+Provide the Confusion Matrix along with sensitivity, specificity, precision and recall on the
+test set obtained by the best boosting tree.
+
+```{r, warning=FALSE,eval=FALSE}
+pred.hr2 = predict(gBoost,newdata=hr_test)
+
+confusionMatrix(hr_test$left, pred.hr2)
+
+# #Confusion Matrix and Statistics
+# 
+#           Reference
+# Prediction    0    1
+#          0 2271   14
+#          1   42  673
+#                                           
+#                Accuracy : 0.9813          
+#                  95% CI : (0.9758, 0.9859)
+#     No Information Rate : 0.771           
+#     P-Value [Acc > NIR] : < 2.2e-16       
+#                                           
+#                   Kappa : 0.9479          
+#                                           
+#  Mcnemar's Test P-Value : 0.0003085       
+#                                           
+#             Sensitivity : 0.9818          
+#             Specificity : 0.9796          
+#          Pos Pred Value : 0.9939          
+#          Neg Pred Value : 0.9413          
+#              Prevalence : 0.7710          
+#          Detection Rate : 0.7570          
+#    Detection Prevalence : 0.7617          
+#       Balanced Accuracy : 0.9807          
+#                                           
+#        'Positive' Class : 0              
+```
+
+## 2
+### A
+
+```{r }
+#train and test sets are splitted using split from CaTools
+set.seed(425)
+split=sample.split(toyota,SplitRatio=0.8)
+toyota_train=subset(toyota,split==TRUE)
+toyota_test=subset(toyota,split==FALSE)
+set.seed(425)
+trainctrl = trainControl(method = 'repeatedcv', number = 10, repeats = 5)
+```
+
+### B
+
+Determine the best random forest (based on the random forest package) by using 10-fold
+cross validation five times with the caret package on the training set by playing with the mtry
+and ntree parameters. What are the best values of these two parameters and what is the out-ofbag accuracy? Comment on which input attributes are important in making predictions.
+
+We do experiment with the parameters mtry within the range [3, number of input attributes] and ntree=100,200,300,400,500, try to obtain the best result in terms of RMSE and report the RMSE in the test set using the randomForest package.
+```{r, echo=FALSE,warning=FALSE, eval=FALSE}
+#train control argument of cross validation is given
+
+#random forest of 100 trees with changing mtry values
+rf100=train(Price~., data=toyota_train, method = "rf", trControl = trainctrl, ntree = 100, tuneGrid = expand.grid(.mtry = (3:9)), metric = "RMSE")
+rf100
+#mtry=5, RMSE=1063.023
+
+#random forest of 200 trees with changing mtry values
+rf200=train(Price~., data=toyota_train, method = "rf", trControl = trainctrl, ntree = 200, tuneGrid = expand.grid(.mtry = (3:9)), metric = "RMSE")
+rf200
+#mtry=5, RMSRE=1065.918 
+
+#random forest of 300 trees with changing mtry values
+rf300=train(Price~., data=toyota_train, method = "rf", trControl = trainctrl, ntree = 300, tuneGrid = expand.grid(.mtry = (3:9)), metric = "RMSE")
+rf300
+#mtry=6, RMSE=1066.710 
+
+#random forest of 400 trees with changing mtry values
+rf400=train(Price~., data=toyota_train, method = "rf", trControl = trainctrl, ntree = 400, tuneGrid = expand.grid(.mtry = (3:9)), metric = "RMSE")
+rf400
+#mtry=5, RMSE=1061.875  
+
+#random forest of 500 trees with changing mtry values
+rf500=train(Price~., data=toyota_train, method = "rf", trControl = trainctrl, ntree = 500, tuneGrid = expand.grid(.mtry = (3:9)), metric = "RMSE")
+rf500
+#mtry=5, RMSE=1062.972
+
+```
+
+
+### C
+Make predictions in the test set and report the root mean square error rate and mean absolute
+error using the functions in the Metrics package.
+
+```{r,warning=FALSE}
+## test kumesindeki satirlar icin tahmin yapma, tahminler 0 veya 1
+library(Metrics)
+set.seed(425)
+rf.toyota=randomForest(Price~.,data=toyota_train,mtry=5,ntree=400,nodesize=8,importance=T)
+pred.toyota = predict(rf.toyota,newdata=toyota_test)
+
+rmse(actual=toyota_test$Price, predicted=pred.toyota)
+#1146.911
+mae(actual=toyota_test$Price, predicted=pred.toyota)
+#851.8447
+
+```
+
+### D
+Repeat part b with the gradient boosting using the caret and gbm packages by playing with
+the interaction.depth, n.trees, shrinkage, and n.minobsinnode parameters. What are the best
+values of these four parameters?
+
+- Max Tree Depth (interaction.depth) = 3,4,5
+ -Number of trees (n.trees) = 100,200,300,400,500
+ - Shrinkage (shrinkage)= 0.1,0.2,0.3
+- Min. Leaf Node Size (n.minobsinnode) = 5,10,15
+
+
+```{r,warning=FALSE}
+#different parameters to try in gbm in grid
+library(gbm)
+set.seed(425)
+#toyota_train$Price=as.factor(toyota_train$Price)
+gbmGrid=expand.grid(interaction.depth = c(3, 4, 5), 
+                    n.trees = (4:20)*25, 
+                    shrinkage = (1:3)*0.1,
+                    n.minobsinnode = c(5, 10, 15))
+
+#gradient boosting machine model
+gBoost_toyota=train(Price~., data=toyota_train, method="gbm", metric="RMSE",verbose = FALSE,
+           trControl = trainctrl, tuneGrid = gbmGrid)
+
+gBoost_toyota #minimum RMSE 1082.418
+#RMSE was used to select the optimal model using the smallest value.The final values used for the model were n.trees = 275, interaction.depth = 4, shrinkage= 0.1 and n.minobsinnode = 5.
+```
+
+### E
+Make predictions in the test set and report the root mean square error rate and mean absolute
+error using the functions in the Metrics package.
+
+```{r}
+set.seed(425)
+RMSE(predict(gBoost_toyota,toyota_test), toyota_test$Price)
+#1117.408
+
+MAE(predict(gBoost_toyota,toyota_test), toyota_test$Price)
+#810.1811
+```
+
+

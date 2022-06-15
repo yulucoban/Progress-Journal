@@ -1,0 +1,171 @@
+---
+title: "IE425-HW4"
+author: "Eda Kocakarin & Yusuf Ulucoban - IE425 - Spring 2022"
+date: '2022-05-30'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(kernlab)
+library(data.table)
+library(caTools)
+library(data.table)
+library(RColorBrewer)
+library(randomForest)
+library(caret)
+library(readxl)
+library(cluster)
+library(dplyr)
+library(ggplot2)
+air=read_excel("/Users/edakocakarin/Desktop/IE425/EastWestAirlines.xlsx")
+options(scipen = 999)
+```
+
+East-West Airlines is trying to learn more about its customers. Key issues are their flying patterns, earning and use of frequent flyer rewards, and use of the airline credit card. The task is to identify customer segments via clustering. The file EastWestAirlines.xlsx contains information on 4000 passengers who belong to an ariline’s frequent flier program. For each passenger the data include information on their mileage history and on different ways they accrued or spent miles in the last year. The goal is to try to identify clusters of passengers that have similar charactersitics for the purpose of targeting different segments for different types of mileage offers.
+
+
+### a. Apply hierarchical clustering with Euclidean distance and complete linkage. How many clusters appear to be appropriate when the silhoutte index is used?
+
+First of all, scaling all attributes is important to compare each attributes. With scaled attributes, hierarchical clustering with Euclidean distance and complete linkage applied. 
+
+```{r}
+
+X=data.frame(scale(air[-1]))
+air1=data.frame(air[,-c(1)])
+#look at scaled
+dist1=dist(X,method="euclidean")
+hc.complete=hclust(dist1, method="complete")
+plot(hc.complete,main="Complete Linkage", xlab="", cex=.9)
+
+```
+
+Silhoutte index is calculated for k=2 to k=10, highest silhoutte index equals to 0.81 which is in 2 cluster as you can see below.
+
+```{r}
+silh=c()
+for (k in 2:10){
+ kume=cutree(hc.complete,k=k)
+ X_sil=silhouette(kume, dist1)
+ silh[k-1]=mean(X_sil[,3])
+}
+
+silh=data.frame(k=2:10,silh)
+silh
+```
+
+Let's look silhoutte index with 2 cluster in detail.
+
+```{r}
+#2 küme
+kume_k2=cutree(hc.complete,k=2)
+plot(kume_k2)
+table(kume_k2)
+
+```
+
+### b. Compare the cluster centroids to characterize the different clusters and try to give each cluster a label.
+
+```{r}
+library(scales)
+clust.centroid = function(i, dat, clusters) {
+    ind = (clusters == i)
+    colMeans(dat[ind,])
+}
+
+comparison = sapply(unique(kume_k2), clust.centroid, air, kume_k2)
+comparison = data.frame(comparison)
+comparison$percentage_diff = percent((comparison[,2] - comparison[,1]) / comparison[,1])
+comparison[,c(1,2)]=round(comparison[,c(1,2)],2)
+comparison
+```
+
+As it can be observed, the centroids of the clusters which is the mean of the each variable for each point in the cluster are differ from each other. The ID row can be ignored. Also, it is easy to see percentage differences between two clusters based on the first one, by the new added column.
+
+### c. To check the stability of the clusters, remove a random 5% of the data (200 observations), and repeat the analysis. Does the same picture emerge? Use 425 as the seed.
+
+Splitted data into 0.95 and 0.05. scaled and clustered 0.95 of dataset .
+
+```{r}
+set.seed(425)
+split1=sample.split(air$ID,SplitRatio=0.95)
+
+air_subset=subset(air1,split1==TRUE)
+
+X1=data.frame(scale(air_subset))
+dist1c=dist(X1,method="euclidean")
+hc.complete1c=hclust(dist1c, method="complete")
+plot(hc.complete1c,main="Complete Linkage", xlab="", cex=.9)
+
+```
+
+Silhouette index is calculated again.
+
+```{r}
+silh1c=c()
+for (k in 2:10){
+ kume1c=cutree(hc.complete1c,k=k)
+ X_sil1c=silhouette(kume1c, dist1c)
+ silh1c[k-1]=mean(X_sil1c[,3])
+}
+
+silh1c=data.frame(k=2:10,silh1c)
+silh1c
+```
+
+Silhoutte index increases to 0.836 in k=2. Still highest silhoutte index is in 2.
+
+```{r}
+#2 küme
+kume2_1c=cutree(hc.complete1c,k=2)
+plot(kume2_1c)
+table(kume2_1c)
+
+```
+
+### d. Use k-means algorithm with different number of clusters. What is the best number of clusters using the silhoutte index?
+
+Let's look silhoutte indexes of different number of clusters to choose optimal cluster number. Below you can see silhoutte index for k=2 to k=15. In k=9, highest silhoutte index is seen.
+
+```{r}
+silh1d=c()
+for (k in 2:10){
+   set.seed(425)
+   km1d=kmeans(X,centers=k,nstart=10)
+ X_sil1d=silhouette(km1d$cluster, dist1)
+ silh1d[k-1]=mean(X_sil1d[,3])
+}
+
+silh1d=data.frame(k=2:10,silh1d)
+silh1d
+
+
+```
+
+Continue with 2 clusters by using kmeans algorithm. 
+
+```{r}
+library(clusterCrit)
+km2=kmeans(X,centers=2, nstart=10)
+
+
+```
+ 
+ Below you can see scaled attributes of 2 clusters and centers. 
+ 
+```{r}
+km2
+```
+ 
+### e. Which clusters would you target for offers, and what type of offers would you target to customers in that cluster?
+
+Lets look original version of each attribute to compare clusters and to offer personalized campaign to targeted cluster of customer. 
+ 
+```{r}
+comparison1 = sapply(unique(km2$cluster), clust.centroid, air, km2$cluster)
+comparison1 = data.frame(comparison1)
+comparison1$percentage_diff = percent((comparison1[,2] - comparison1[,1]) / comparison1[,1])
+comparison1
+```
+
+Concerning Balance, bonus_miles, bonus_trans and flight_miles_12month attributes, customers in cluster2 like earning miles with flights.Therefore, cluster2 is chosen for target audience. Special campaign is determined which claims that "THE MORE FLIGHTS, THE MORE MILES". 
+

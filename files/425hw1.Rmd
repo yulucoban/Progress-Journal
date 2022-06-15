@@ -1,0 +1,226 @@
+---
+title: "Homework 1"
+author: "Yusuf Ulucoban - Eda Kocakarın"
+date: "02 04 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE , warning = FALSE)
+```
+
+```{r, results='hide'}
+library(data.table)
+library(ggplot2)
+library(lattice)
+library(caTools)
+library(rpart)
+library(rpart.plot)
+library(tree)
+library(caret)
+library(Metrics)
+library(MASS)
+
+```
+
+## Question1
+
+  Consider the dataset given in the file “Financialdistress-cat.csv”. The output attribute to be
+predicted is the Financial.Distress attribute, which is zero if the company is in a healthy
+condition, one otherwise. Use a seed value of 500 whereever you need a seed.  
+
+### Question 1a
+  a) Partition the dataset into training and test sets where 75% of goes into the training set and
+25% goes into the test set. What is the percentage of companies in distress in the overall,
+training, and test sets?  
+  
+  Since the importance is with predicting the Financial.Distress class correctly and there may not be many observations of this class, it is a good idea to keep the percentage of Financial.Distress similar in both sets. The data can be splitted into training and test sets by,
+
+
+```{r}
+financial <- read.csv("C:/Users/Yuluc/OneDrive/Desktop/FinancialDistress-Cat.csv")
+financial$Financial.Distress = as.factor(financial$Financial.Distress)
+split = sample.split(financial$Financial.Distress, SplitRatio = 0.75)
+train = subset(financial, split == TRUE)
+test = subset(financial, split == FALSE)
+```
+
+Percantages can be found as,
+
+```{r}
+mean(as.numeric(train$Financial.Distress) - 1) * 100
+mean(as.numeric(test$Financial.Distress) - 1) * 100
+mean(as.numeric(financial$Financial.Distress) - 1) * 100
+```
+
+### Question 1b
+  b) Using the rpart package and training set, determine the best size of the best tree in terms of
+cross validation error. How many leaf nodes do exist in the tree?  
+  
+  By using the rpart function, the tree is produced. First, the index is found. Then by increasing the nsplit by 1. Size is found as,
+
+```{r}
+
+#producing a tree
+bt=rpart(Financial.Distress~.,data=train)
+prp(bt,type=5,extra=101,nn=TRUE,tweak=1)
+
+
+#finding optimal tree by observing errors and sizes
+printcp(bt)
+plotcp(bt)
+print(bt$cptable)
+
+# Retrieve optimal cp value based on cross-validated error
+opt_index=which.min(bt$cptable[, "xerror"])
+opt_index
+opt_index=which.min(unname(bt$cptable[, "xerror"]))
+opt_index
+cp_opt=bt$cptable[opt_index, "CP"]
+cp_opt
+
+# Prune the model (to optimized cp value)
+bt_opt=prune.rpart(tree = bt,cp = cp_opt)
+# Plot the optimized model
+rpart.plot(x = bt_opt, yesno = 2, type = 2, extra = 101)
+#of leaf nodes:
+bt_opt$cptable[opt_index,"nsplit"] + 1 
+
+```
+
+
+### Question 1c
+  c) Make predictions in the test set and report the error rate, sensitivity, specificity, and precision
+using the confusionMatrix function of the caret package.   
+  
+  Predictions are made, and also a confusion matrix is illustrated below,
+
+```{r}
+## test kumesindeki satirlar icin tahmin yapma, tahminler 0 veya 1
+preds = predict(bt_opt, test, type="c")
+table(test$Financial.Distress, preds)
+confusionMatrix(test$Financial.Distress, preds)
+```
+
+
+### Question 1d
+  d) Using the tree package find the size of the tree which makes the cost complexity (measured
+by the deviance in the tree package) the smallest? How many leaf nodes does it have?  
+  
+
+
+```{r}
+#largest possible tree is found by setting ratio of deviance to 0 and permitting for minimum possible size and cut values
+treelarge = tree(Financial.Distress~., train, mindev=0, minsize=2, mincut=1)
+
+#number of leaf nodes can be checked in some ways
+summary(treelarge)
+
+#this also works
+sum(treelarge$frame$var == "<leaf>")
+
+#tree can be plotted
+plot(treelarge, col="blue")
+text(treelarge, cex=0.7, use.n=TRUE)
+
+cctree = cv.tree(treelarge,K=10)
+
+plot(cctree, pch=21, bg=5, type="p", cex=1.5, main="Deviance vs. Size for Possible Prunning")
+
+#minimum deviation is found
+mindev = min(cctree$dev)
+#trees with min deviation is selected
+list = data.table(Size = cctree$size, Dev = cctree$dev)
+#smallest tree from these trees is selected 
+best_size = min(list[Dev == mindev, Size]) 
+best_size
+
+
+#tree is prunned into best size as optimumtree
+optimumtree = prune.tree(treelarge, best=best_size)
+
+#optimumtree is plotted
+plot(optimumtree, col="red")
+text(optimumtree, cex=0.8)
+```
+
+
+### Question 1e
+  e) Make predictions in the test set and report the error rate, sensitivity, specificity, and precision
+using the confusionMatrix function of the caret package. Compare the result with part (c).
+
+```{r}
+#Predictions are made with optimumtree
+opt_preds2 = predict(optimumtree, test,type="class")
+
+#Confusion matrix
+confusionMatrix(test$Financial.Distress, opt_preds2)
+```
+
+From results, it is observed that accuracy, sensitivity and specificity are different for each random split. When the process is started again, the numbers may change and the better one differs.  
+The sensitivity (otherwise known as the true positive rate) is the proportion of successful extubations that are correctly classified as such, while the specificity (otherwise known as the true negative rate) is the proportion of unsuccessful extubations that are correctly classified as such.  
+
+  
+## Question2
+  Consider the dataset given in the file “ToyotaCorolla.csv”. The output attribute to be
+predicted is the Price attribute. Use a seed value of 500 whereever you need a seed.  
+
+```{r}
+toyota =read.csv("C:/Users/Yuluc/OneDrive/Desktop/ToyotaCorolla.csv")
+```
+
+### Question 2a 
+  a) Partition the dataset into training and test sets where 80% of goes into the training set and
+20% goes into the test set.
+
+```{r}
+split_toyota = sample.split(toyota$Price, SplitRatio = 0.8)
+train_toyota = subset(toyota, split_toyota  == TRUE)
+test_toyota = subset(toyota, split_toyota  == FALSE)
+
+```
+
+### Question 2b 
+  b) Using the rpart package and training set, determine the best size of the best tree in terms of
+cross validation error. How many leaf nodes do exist in the tree?
+```{r}
+# agaci olusturma
+btoyota=rpart(Price~.,data=train_toyota)
+prp(btoyota,type=5,extra=101,nn=TRUE,tweak=1)
+
+#best tree
+printcp(btoyota)
+plotcp(btoyota)
+print(btoyota$cptable)
+
+# Retrieve optimal cp value based on cross-validated error
+opt_index_toyota=which.min(btoyota$cptable[, "xerror"])
+opt_index_toyota
+opt_index_toyota=which.min(unname(btoyota$cptable[, "xerror"]))
+opt_index_toyota
+cp_opt_toyota=btoyota$cptable[opt_index_toyota, "CP"]
+cp_opt_toyota
+
+# Prune the model (to optimized cp value)
+bt_opt_toyota=prune.rpart(tree = btoyota,cp = cp_opt_toyota)
+# Plot the optimized model
+rpart.plot(x = bt_opt_toyota, yesno = 2, type = 2, extra = 101)
+#of leaf nodes:
+bt_opt_toyota$cptable[opt_index_toyota,"nsplit"] + 1 
+
+```
+
+### Question 2c 
+  c) Make predictions in the test set and report the root mean square error rate and mean absolute
+error using the functions in the Metrics package.
+
+```{r}
+
+## 10-fold CV for 5 times
+ctrl = trainControl(method='repeatedcv',number=10,repeats=5)
+fit=train(Price~., data=train_toyota, method = "rpart", metric="RMSE",  trControl = ctrl, tuneGrid = expand.grid(cp=(1:100)*0.0001))
+fit_prediction=predict(fit,newdata=test_toyota)
+rmse(actual=test_toyota$Price, predicted=fit_prediction)
+mae(actual=test_toyota$Price, predicted=fit_prediction)
+
+```

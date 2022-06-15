@@ -85,5 +85,26 @@ Having trouble with Pages? Check out our [documentation](https://docs.github.com
 
 # Data Mining for IE425
 
+## Homework 1
+
+[Here](files/425hw1.html) is “Decision Tree Analysis” using R !
+
+
+## Homework 2
+
+[Here](files/IE425-HW2.html) is “Cross Validatiton” using R !
+
+
+## Homework 3
+
+[Here](files/IE425-HW3.html) is “Logistic Regression Analysis” using R !
+
+
+## Homework 4
+
+[Here](files/IE425-HW4-v2.html) is “Clustering Analysis” using R !
+
+
+
 # Non-Linear Optimization for IE440
 
