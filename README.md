@@ -42,12 +42,12 @@
 
 ## Homework 2
 
-[Here](files/IE425-HW2.html) is “Cross Validatiton Analysis” in R !
+[Here](files/IE425-HW2.html) is “Random Forest & Cross Validatiton Analysis” in R !
 
 
 ## Homework 3
 
-[Here](files/IE425-HW3.html) is “Logistic Regression Analysis” in R !
+[Here](files/IE425-HW3.html) is “K Nearest Neighborhood & Logistic Regression Analysis” in R !
 
 
 ## Homework 4
